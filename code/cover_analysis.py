@@ -3,8 +3,8 @@ import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import interp1d
 from scipy.signal import find_peaks, savgol_filter
+import glob
 
 # LOCAL FILES - TO REMOVE LATER
 DIR = r"C:\Users\govaerts.kristof\OneDrive - SESVanderHave N.V\Documents\Kristof_phenotyping\CoverAnalysis"
@@ -15,6 +15,11 @@ ROW_WIDTH = 120
 AXIS = 1
 
 #FUNCTIONS
+def find_gaps(rowmask, thresh=0.3):
+    rowprof = savgol_filter(np.mean(rowmask, axis=0), 101, 3)
+    gapf = np.vectorize(lambda x: 1 if x<0.3 else 0)
+    gaps = gapf(rowprof)
+    return [i for i in range(len(gaps)) if gaps[i]==1]
 
 class droneImg:
     def __init__(self, file_loc):
@@ -42,16 +47,34 @@ class droneImg:
             r = self.rows[k]
             if AXIS == 1:
                 ss = self.green[int(r["min"]):int(r["max"]), :]
-                self.rows[k]["cover"] = np.mean(ss)
+                self.rows[k]["cover"] = 100*np.mean(ss)
 
-
-    def show_rows(self):
-        plt.imshow(self.bw)
+    def calc_row_gaps(self):
         for k in self.rows.keys():
             r = self.rows[k]
-            plt.plot((1, self.shape[AXIS]), (r["peak"], r["peak"]), 'r-')
-            plt.plot((1, self.shape[AXIS]), (r["min"], r["min"]), 'b--')
-            plt.plot((1, self.shape[AXIS]), (r["max"], r["max"]), 'b--')
+            if AXIS == 1:
+                ss = self.green[int(r["min"]):int(r["max"]), :]
+                self.rows[k]["gap_inds"] = find_gaps(ss)
+
+    def rows_figure(self, name=""):
+        fig = plt.figure(figsize=(13,10))
+        ax = plt.axes()
+        ax.imshow(self.bw, cmap="gray")
+        ax.imshow(self.green, alpha=0.3)
+        ax.set_xlim([0, self.shape[1]+500]) # extra space for annotations
+        for k in self.rows.keys():
+            r = self.rows[k]
+            gap_pos = [r["peak"] for i in range(len(r["gap_inds"]))]
+            ax.scatter(r["gap_inds"], gap_pos, s=5, c="r", marker="s")
+            ax.plot((1, self.shape[AXIS]), (r["min"], r["min"]), 'b--')
+            ax.plot((1, self.shape[AXIS]), (r["max"], r["max"]), 'b--')
+            ann = "row: {}\n%cover: {:.3}\n%gaps:  {:.3}".format(k, r["cover"],
+                                                100*len(r["gap_inds"])/self.shape[1])
+            ax.annotate(ann, xy = (self.shape[1]+100, r["max"]))
+        avcov = 100*np.mean(self.green)
+        rowcov = np.mean([r["cover"] for r in self.rows.values()])
+        ax.set_title("{}: Average cover: {:.3}%, average row cover: {:.3}%".format(name,avcov, rowcov))
+        self.fig = fig
 
     def plot_row_greenness(self):
         for r in self.rows.values():
@@ -59,12 +82,15 @@ class droneImg:
             rowprof = np.round(savgol_filter(np.mean(row, axis=0), 101, 3))
             plt.plot(rowprof)
 
-
-
-
-di = droneImg(os.path.join(DIR, FILE))
-di.mask(HUE_RANGE)
-di.find_rows()
-di.calc_row_cover()
-di.show_rows()
-di.plot_row_greenness()
+os.chdir(DIR)
+os.mkdir("test")
+filelist = glob.glob("*.JPG")
+for f in filelist:
+    print(f)
+    di = droneImg(os.path.join(DIR, f))
+    di.mask(HUE_RANGE)
+    di.find_rows()
+    di.calc_row_cover()
+    di.calc_row_gaps()
+    di.rows_figure(name=f)
+    di.fig.savefig(os.path.join(DIR, os.path.join("test", f[:-4] + ".png")))
