@@ -4,11 +4,13 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks, savgol_filter
+from skimage import filters
 import glob
 
 # LOCAL FILES - TO REMOVE LATER
-DIR = r"C:\Users\govaerts.kristof\OneDrive - SESVanderHave N.V\Documents\Kristof_phenotyping\CoverAnalysis"
-FILE = r"X1Y5 CHAMOIS.JPG"
+#DIR = r"C:\Users\govaerts.kristof\OneDrive - SESVanderHave N.V\Documents\Kristof_phenotyping\CoverAnalysis"
+DIR = r"C:\Users\govaerts.kristof\PycharmProjects\CoverAnalyzer\examples"
+FILE = r"X3Y7 LEMON.JPG"
 
 HUE_RANGE = (80, 90)
 ROW_WIDTH = 120
@@ -21,6 +23,10 @@ def find_gaps(rowmask, thresh=0.3):
     gaps = gapf(rowprof)
     return [i for i in range(len(gaps)) if gaps[i]==1]
 
+def ratio_img(im, ax):
+    return im[:,:,ax]/np.mean(im, axis=2)
+
+
 class droneImg:
     def __init__(self, file_loc):
         self.rgb = cv2.imread(file_loc)
@@ -29,15 +35,21 @@ class droneImg:
         self.shape = self.bw.shape
 
     def mask(self, thresh):
-        f = np.vectorize(lambda x: 1 if min(thresh) <= x <= max(thresh) else 0)
-        self.green = f(self.hsv[:, :, 0])
+        #f = np.vectorize(lambda x: 1 if min(thresh) <= x <= max(thresh) else 0)
+        #self.green = f(self.hsv[:, :, 0])
+        av = ratio_img(self.rgb, ax=1)
+        t = filters.threshold_otsu(av)
+        av[av < t] = 0
+        av[av >= t] = 1
+        self.green = av
 
-    def find_rows(self, ax=1, sep=50, thresh=1, invert=True):
-        av = np.mean(self.bw, axis=AXIS)
+
+    def find_rows(self, sep=50, thresh=1, invert=True):
+        av = ratio_img(self.rgb, ax=1)
+        av = np.mean(av, axis=1)
         av = savgol_filter(av, 101, 3)  # filter with window length 101 & order 3 - can be very smooth
-        if invert:
-            av = -av + np.max(av)  # invert because grass is less intense than soil
-        peaks = find_peaks(av, height=np.mean(av) - 1.5 * np.std(av), distance=sep)[0]
+
+        peaks = find_peaks(av, height=np.mean(av), distance=sep)[0]
         self.rows = {str(i): {"peak": int(peaks[i]),
                               "min": int(peaks[i] - ROW_WIDTH/2),
                               "max": int(peaks[i] + ROW_WIDTH/2)} for i in range(len(peaks))}
@@ -57,8 +69,8 @@ class droneImg:
                 self.rows[k]["gap_inds"] = find_gaps(ss)
 
     def rows_figure(self, name=""):
-        fig = plt.figure(figsize=(13,10))
-        ax = plt.axes()
+        fig, ax = plt.subplots(1,1, figsize=(13, 10))
+
         ax.imshow(self.bw, cmap="gray")
         ax.imshow(self.green, alpha=0.3)
         ax.set_xlim([0, self.shape[1]+500]) # extra space for annotations
@@ -74,13 +86,9 @@ class droneImg:
         avcov = 100*np.mean(self.green)
         rowcov = np.mean([r["cover"] for r in self.rows.values()])
         ax.set_title("{}: Average cover: {:.3}%, average row cover: {:.3}%".format(name,avcov, rowcov))
+
         self.fig = fig
 
-    def plot_row_greenness(self):
-        for r in self.rows.values():
-            row = self.green[r["min"]:r["max"],:]
-            rowprof = np.round(savgol_filter(np.mean(row, axis=0), 101, 3))
-            plt.plot(rowprof)
 
 os.chdir(DIR)
 os.mkdir("test")
@@ -90,6 +98,7 @@ for f in filelist:
     di = droneImg(os.path.join(DIR, f))
     di.mask(HUE_RANGE)
     di.find_rows()
+    print("Rows found: {}".format(len(di.rows)))
     di.calc_row_cover()
     di.calc_row_gaps()
     di.rows_figure(name=f)
