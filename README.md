@@ -25,7 +25,7 @@ The intensity of the green channel relative to the other two channels is calcula
 
 <img src="/examples/plots/eq.gif">
 
-This allows us to calculate a map in which high values (e.g. above 1) indicate 'green' pixels. An alternative approach could use the H channel in a HSV image, but this method provided nicer results. Important is that pixel sizes are either known or consistent, as rows are calculated based on a fixed row width.
+This allows us to calculate a map in which high values (e.g. above 1) indicate 'green' pixels. Otsu's thresholding method is used to separate 'green' and 'non-green' pixels and this seems to work very well. An alternative approach could use the H channel in a HSV image, but this method provided nicer results. Important is that pixel sizes are either known or consistent, as rows are calculated based on a fixed row width.
 
 <img src="/examples/plots/fig1.png" height="300"> <img src="/examples/plots/fig2.png" height="300">
  
@@ -34,7 +34,21 @@ By calculating the intensity profile along the Y-axis (i.e. averaging every X-ax
 ## Output
 <img src="/examples/test/test_img.png" height="500">
 
-An annotated image is generated for each input .JPG file (assuming none triggered an error). This image shows a **grayscale** image overlaid with the segmented leaves (in transparent yellow). Row numbering is indicated on the side, along with corresponding cover and gap values. 
+An annotated image is generated for each input .JPG file (assuming none triggered an error). This image shows a **grayscale** image overlaid with the segmented leaves (in transparent yellow). Row numbering is indicated on the side, along with corresponding cover and gap values. The output table is saved in the output folder as *cover_statistics.csv* and is formatted as follows:
+
+filename | total_cover | av_row_cover | av-gaps | rows
+-------- | ----------- | ------------ | ------- | ----
+file_1.JPG | 41.299 | 52.222 | 14.284 | 12
+file_2.JPG | 38.213 | 53.596 | 15.010 | 12
+file_3.JPG | 40.019 | 56.283 | 12.323 | 12
+file_4.JPG | 38.204 | 58.261 | 16.658 | 12
+file_5.JPG | 40.198 | 51.009 | 14.626 | 12
+
+- *filename*: The name of the file from which the statistics were derived
+- *total_cover*: Total cover calculated across the entire image, ie the percentage of pixels included in the mask.
+- *av_row_cover*: Average cover per row. Should be more accurate as a lot of soil is omitted
+- *av_gaps* The average gap percentage per row.
+- *rows* The amount of rows identified in the image. Useful for testing how well the row identification worked, ie here if it is not 12 something went wrong. 
 
 ## Author
 
