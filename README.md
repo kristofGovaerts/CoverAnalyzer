@@ -12,7 +12,7 @@ Automatic tool for assessing cover in drone images. This tool performs several f
 Run */code/cover_analysis.py* and provide a folder containing the input .JPG files. The script will iterate over each .JPG file and generate output accordingly. 
 
 # How it works
-This script makes use of the fact that the green channel in RGB drone images of beet fields is hyperintense relative to the red and blue channels. Rows are automatically detected based on the intensity profile along the Y-axis.
+This script makes use of the fact that, for beet leaves in the field, the green channel in RGB drone images is hyperintense relative to the red and blue channels. Rows are automatically detected based on the intensity profile along the Y-axis.
 
 ## Input file.
 <img src="/examples/test_img.JPG" height="300">
@@ -47,8 +47,8 @@ file_5.JPG | 40.198 | 51.009 | 14.626 | 12
 - *filename*: The name of the file from which the statistics were derived
 - *total_cover*: Total cover calculated across the entire image, ie the percentage of pixels included in the mask.
 - *av_row_cover*: Average cover per row. Should be more accurate as a lot of soil is omitted
-- *av_gaps* The average gap percentage per row.
-- *rows* The amount of rows identified in the image. Useful for testing how well the row identification worked, ie here if it is not 12 something went wrong. 
+- *av_gaps*: The average gap percentage per row.
+- *rows*: The amount of rows identified in the image. Useful for testing how well the row identification worked, ie here if it is not 12 something went wrong. 
 
 ## Author
 
