@@ -107,9 +107,9 @@ for f in filelist:
     di.rows_figure(name=f)
     di.fig.savefig(os.path.join(DIR, os.path.join(OUTPUT_FOLDER, f[:-4] + ".png")))
     avgap = np.mean([100*len(v["gap_inds"])/di.shape[1] for v in di.rows.values()])
-    out = [f, 100*np.mean(di.green), np.mean([v["cover"] for v in di.rows.values()]), avgap]
+    out = [f, 100*np.mean(di.green), np.mean([v["cover"] for v in di.rows.values()]), avgap, len(di.rows.keys())]
     outlist.append(out)
 
 outfile = pd.DataFrame(outlist)
-outfile.columns = ["filename", "total_cover", "av_row_cover", "av_gaps"]
+outfile.columns = ["filename", "total_cover", "av_row_cover", "av_gaps", "rows"]
 outfile.to_csv(os.path.join(OUTPUT_FOLDER, "cover_statistics.csv"), sep='\t', index=False)
