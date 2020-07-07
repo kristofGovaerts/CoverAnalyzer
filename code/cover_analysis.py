@@ -6,15 +6,13 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks, savgol_filter
 from skimage import filters
 import glob
+from tkinter import filedialog, Tk
+import pandas as pd
 
 # LOCAL FILES - TO REMOVE LATER
-#DIR = r"C:\Users\govaerts.kristof\OneDrive - SESVanderHave N.V\Documents\Kristof_phenotyping\CoverAnalysis"
-DIR = r"C:\Users\govaerts.kristof\PycharmProjects\CoverAnalyzer\examples"
-FILE = r"X3Y7 LEMON.JPG"
-
-HUE_RANGE = (80, 90)
+OUTPUT_FOLDER = "output"
 ROW_WIDTH = 120
-AXIS = 1
+AXIS = 1 #does not work yet, will implement if necessary
 
 #FUNCTIONS
 def find_gaps(rowmask, thresh=0.3):
@@ -34,9 +32,7 @@ class droneImg:
         self.bw = cv2.cvtColor(self.rgb, cv2.COLOR_RGB2GRAY)
         self.shape = self.bw.shape
 
-    def mask(self, thresh):
-        #f = np.vectorize(lambda x: 1 if min(thresh) <= x <= max(thresh) else 0)
-        #self.green = f(self.hsv[:, :, 0])
+    def mask(self):
         av = ratio_img(self.rgb, ax=1)
         t = filters.threshold_otsu(av)
         av[av < t] = 0
@@ -57,16 +53,14 @@ class droneImg:
     def calc_row_cover(self):
         for k in self.rows.keys():
             r = self.rows[k]
-            if AXIS == 1:
-                ss = self.green[int(r["min"]):int(r["max"]), :]
-                self.rows[k]["cover"] = 100*np.mean(ss)
+            ss = self.green[int(r["min"]):int(r["max"]), :]
+            self.rows[k]["cover"] = 100*np.mean(ss)
 
     def calc_row_gaps(self):
         for k in self.rows.keys():
             r = self.rows[k]
-            if AXIS == 1:
-                ss = self.green[int(r["min"]):int(r["max"]), :]
-                self.rows[k]["gap_inds"] = find_gaps(ss)
+            ss = self.green[int(r["min"]):int(r["max"]), :]
+            self.rows[k]["gap_inds"] = find_gaps(ss)
 
     def rows_figure(self, name=""):
         fig, ax = plt.subplots(1,1, figsize=(13, 10))
@@ -90,16 +84,32 @@ class droneImg:
         self.fig = fig
 
 
+DIR = filedialog.askdirectory()
 os.chdir(DIR)
-os.mkdir("test")
+
+try:
+    os.mkdir(OUTPUT_FOLDER)
+except FileExistsError:
+    print("Warning: Target directory /{}/ already found. Files may be overwritten.".format(os.path.join(DIR,
+                                                                                                        OUTPUT_FOLDER)))
+
 filelist = glob.glob("*.JPG")
+outlist = []
+
 for f in filelist:
     print(f)
     di = droneImg(os.path.join(DIR, f))
-    di.mask(HUE_RANGE)
+    di.mask()
     di.find_rows()
     print("Rows found: {}".format(len(di.rows)))
     di.calc_row_cover()
     di.calc_row_gaps()
     di.rows_figure(name=f)
-    di.fig.savefig(os.path.join(DIR, os.path.join("test", f[:-4] + ".png")))
+    di.fig.savefig(os.path.join(DIR, os.path.join(OUTPUT_FOLDER, f[:-4] + ".png")))
+    avgap = np.mean([100*len(v["gap_inds"])/di.shape[1] for v in di.rows.values()])
+    out = [f, 100*np.mean(di.green), np.mean([v["cover"] for v in di.rows.values()]), avgap]
+    outlist.append(out)
+
+outfile = pd.DataFrame(outlist)
+outfile.columns = ["filename", "total_cover", "av_row_cover", "av_gaps"]
+outfile.to_csv(os.path.join(OUTPUT_FOLDER, "cover_statistics.csv"), sep='\t', index=False)
