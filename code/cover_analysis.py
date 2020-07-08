@@ -100,7 +100,8 @@ class droneImg:
         p, pv = optimize.curve_fit(cosine_func, xsig, ysig, [a0, b0, c0, d0],
                                    bounds=([0, 0, -np.inf, 0], [np.inf, np.inf, np.inf, np.inf]))
         per = p[1]
-        pha = solve((symbols('x')/p[1]) + (1/p[2]))[0]  #calculate x-offset of maximum
+        # calculate x-offset of maximum: max of cosine function is reached when (x/b + 1/c)=1
+        pha = solve((symbols('x')/p[1]) + (1/p[2]) - 1)[0]  
         while pha < 0:
             pha += per  # determine starting point
         peaks = [pha + i*per for i in range(ROW_NO)]
