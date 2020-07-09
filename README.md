@@ -45,6 +45,16 @@ While *Method 1* identifies peaks in a local intensity-based way, *method 2* tak
 
 <img src="/examples/plots/fig3.png" height="400">
 
+The cosine function is defined as follows:
+
+**y = a * cos(2πx/b + 2π/c) + d**
+
+However, by rescaling the data from -1 to 1 we can omit a and d and perform a simple two-factor sine fit:
+
+**y = cos(2πx/b + 2π/c)**
+
+Here, the period (distance between peaks) equals *b* and maxima occur when *2πx/b + 2π/c = 2π*, allowing us to determine peak positions. 4-factor and 2-factor fits provide very similar results but 2-factor fits are typically faster and more accurate.
+
 ## Output
 Mean cover (% green pixels) is calculated across the entire image, as well as for each row individually. Furthermore, gaps are identified by taking the mean intensity profile along each row and using a threshold approach to determine gap pixels.
 
