@@ -37,10 +37,15 @@ def ratio_img(im, ax):
     return im[:, :, ax]/np.mean(im, axis=2)
 
 
-def cosine_func(x, a, b, c, d):
-    # 4-factor sine function
-    # a = amplitude, b = period (x-units), c = phase (x-units), d = y-offset
-    return a * np.cos((2*np.pi*x)/b + 2*np.pi/c) + d
+# def cosine_func(x, a, b, c, d):
+#     # 4-factor sine function
+#     # a = amplitude, b = period (x-units), c = phase (x-units), d = y-offset
+#     return a * np.cos((2*np.pi*x)/b + 2*np.pi/c) + d
+
+def cosine_func(x, b, c):
+    # 2-factor sine function
+    # b = period (x-units), c = phase (x-units)
+    return np.cos((2*np.pi*x)/b + 2*np.pi/c)
 
 
 def filling(im, ker, it=1):
@@ -88,20 +93,21 @@ class droneImg:
         # are evenly spaced, making it more robust to signal fluctuations or flat peaks
         # x and y arrays
         ysig = np.mean(ratio_img(self.rgb, ax=1), axis=1)
+        ysig = 2*(ysig-min(ysig))/max(ysig-min(ysig)) - 1  # normalize to -1-1, ie basic cosine func
         xsig = np.arange(len(ysig))
 
         # starting values: a = amplitude, b = period (x-units), c = phase (x-units), d = y-offset
-        a0 = np.max(ysig) - np.mean(ysig)
+        # a0 = np.max(ysig) - np.mean(ysig)
         b0 = len(xsig) / ROW_NO
         c0 = 2.0
-        d0 = np.mean(ysig)
+        # d0 = np.mean(ysig)
 
         # fit parameters
-        p, pv = optimize.curve_fit(cosine_func, xsig, ysig, [a0, b0, c0, d0],
-                                   bounds=([0, 0, -np.inf, 0], [np.inf, np.inf, np.inf, np.inf]))
-        per = p[1]
-        # calculate x-offset of maximum: max of cosine function is reached when (x/b + 1/c)=1
-        pha = solve((symbols('x')/p[1]) + (1/p[2]) - 1)[0]  
+        p, pv = optimize.curve_fit(cosine_func, xsig, ysig, [b0, c0],
+                                   bounds=([0, -np.inf], [np.inf, np.inf]))
+        per = p[0]  # period in x-units
+        # calculate x-offset of maximum: max of cosine function is reached when (x/b + 1/c)=1. solve() equals to 0
+        pha = solve((symbols('x') / p[0]) + (1 / p[1]) - 1)[0]
         while pha < 0:
             pha += per  # determine starting point
         peaks = [pha + i*per for i in range(ROW_NO)]
