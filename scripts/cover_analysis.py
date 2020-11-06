@@ -1,6 +1,6 @@
 # Automatic batch tool for assessing cover on RGB drone images in .JPG format.
 
-#imports
+# imports
 import os
 import cv2
 import numpy as np
@@ -9,23 +9,25 @@ from scipy.signal import find_peaks, savgol_filter
 from scipy import optimize
 
 import glob
-from tkinter import filedialog, Tk
+from tkinter import filedialog
 import pandas as pd
 from sympy import symbols, solve
 
-from scripts.segmentation.segmentation import otsu_mask, ratio_img, find_gaps, filling
-from scripts.analysis.analysis import cosine_func
+from scripts.segmentation.segmentation import otsu_mask, ratio_img
+from scripts.analysis.analysis import cosine_func, calc_row_cover, calc_row_gaps
 
 # GLOBAL VARS
-OUTPUT_FOLDER = "output"
-ROW_WIDTH = 120  # row width in pixels
+OUTPUT_FOLDER = "output" # The name of the output folder.
+ROW_WIDTH = 40  # row width in pixels - change if necessary
+# TODO: Automatic row width detection
+
 ROW_FINDING = "periodic"  # 'periodic' or 'automatic'
 AXIS = 1  # does not work yet, will implement if necessary
 KERNEL = (3, 3)  # for masking - larger values = more blurry but less noisy mask
 THRESH = 0.2
 
 
-class droneImg:
+class DroneImg:
     def __init__(self, file_loc):
         self.rgb = cv2.imread(file_loc)
 #        self.hsv = cv2.cvtColor(self.rgb, cv2.COLOR_RGB2HSV)
@@ -37,10 +39,6 @@ class droneImg:
         self.fig = None
         self.window_length = int(2*ROW_WIDTH+1)
 
-    def reshape(self):
-        # reshape image to consistent size - to facilitate row separation
-        print('test')
-
     def mask(self):
         self.green = otsu_mask(self.rgb, kernel=KERNEL)
 
@@ -49,7 +47,7 @@ class droneImg:
         # peak positions
         av = ratio_img(self.rgb, ax=1)
         av = np.mean(av, axis=1)
-        av = savgol_filter(av, self.window_length, 3)  # filter with window length based on sep & order 3 - can be very smooth
+        av = savgol_filter(av, self.window_length, 3)  # filter with window length based on sep & order 3
 
         peaks = find_peaks(av, height=np.mean(av), distance=sep)[0]
         self.rows = {str(i): {"peak": int(peaks[i]),
@@ -89,35 +87,18 @@ class droneImg:
 
     def calc_row_cover(self):
         # Calculate average cover for each row.
-        for k in self.rows.keys():
-            r = self.rows[k]
-            ss = self.green[int(r["min"]):int(r["max"]), :]
-            self.rows[k]["cover"] = 100*np.mean(ss)
+        self.rows = calc_row_cover(self.rows, self.green)
 
     def calc_row_gaps(self):
-        # Crop the mask image for each row and calculate cover.
-        for k in self.rows.keys():
-            r = self.rows[k]
-
-            if r["min"] < 0:
-                mi = 0
-            else:
-                mi = int(r["min"])
-
-            if r["max"] >= self.green.shape[0] - 1:
-                ma = self.green.shape[0] - 1
-            else:
-                ma = int(r["max"])
-
-            ss = self.green[mi:ma, :]
-            self.rows[k]["gap_inds"] = find_gaps(ss, window_length=self.window_length, thresh=THRESH)
+        # Calculate gap postitions.
+        self.rows = calc_row_gaps(self.rows, self.green, self.window_length, THRESH)
 
     def rows_figure(self, name=""):
-        fig, ax = plt.subplots(1,1, figsize=(13, 10))
+        fig, ax = plt.subplots(1, 1, figsize=(13, 10))
 
         ax.imshow(self.bw, cmap="gray")
         ax.imshow(self.green, alpha=0.3)
-        ax.set_xlim([0, self.shape[1]+500]) # extra space for annotations
+        ax.set_xlim([0, self.shape[1]+500])  # extra space for annotations
         for k in self.rows.keys():
             r = self.rows[k]
             gap_pos = [r["peak"] for i in range(len(r["gap_inds"]))]
@@ -125,33 +106,33 @@ class droneImg:
             ax.plot((1, self.shape[AXIS]), (r["min"], r["min"]), 'b--')
             ax.plot((1, self.shape[AXIS]), (r["max"], r["max"]), 'b--')
             ann = "row: {}\n%cover: {:.3}\n%gaps:  {:.3}".format(k, r["cover"],
-                                                100*len(r["gap_inds"])/self.shape[1])
-            ax.annotate(ann, xy = (self.shape[1]+100, r["max"]))
+                                                                 100*len(r["gap_inds"])/self.shape[1])
+            ax.annotate(ann, xy=(self.shape[1]+100, r["max"]))
         avcov = 100*np.mean(self.green)
         rowcov = np.mean([r["cover"] for r in self.rows.values()])
-        ax.set_title("{}: Average cover: {:.3}%, average row cover: {:.3}%".format(name,avcov, rowcov))
+        ax.set_title("{}: Average cover: {:.3}%, average row cover: {:.3}%".format(name, avcov, rowcov))
 
         self.fig = fig
 
 
 def main():
-    DIR = filedialog.askdirectory()
-    os.chdir(DIR)
+    d = filedialog.askdirectory()
+    os.chdir(d)
 
     try:
         os.mkdir(OUTPUT_FOLDER)
     except FileExistsError:
-        print("Warning: Target directory /{}/ already found. Files may be overwritten.".format(os.path.join(DIR,
-                                                                                                            OUTPUT_FOLDER)))
+        print("Warning: Target directory /{}/ already found. Files may be overwritten."
+              .format(os.path.join(d, OUTPUT_FOLDER)))
 
     filelist = glob.glob("*.JPG")
     outlist = []
 
     for f in filelist:
         print(f)
-        di = droneImg(os.path.join(DIR, f))
+        di = DroneImg(os.path.join(d, f))
         di.mask()
-        cv2.imwrite(os.path.join(DIR, os.path.join(OUTPUT_FOLDER, f[:-4] + "_mask.png")), 255*di.green)
+        cv2.imwrite(os.path.join(d, os.path.join(OUTPUT_FOLDER, f[:-4] + "_mask.png")), 255*di.green)
 
         if ROW_FINDING == 'automatic':
             print("Trying to automatically determine row positions.")
@@ -167,7 +148,7 @@ def main():
         di.calc_row_cover()
         di.calc_row_gaps()
         di.rows_figure(name=f)
-        di.fig.savefig(os.path.join(DIR, os.path.join(OUTPUT_FOLDER, f[:-4] + ".png")))
+        di.fig.savefig(os.path.join(d, os.path.join(OUTPUT_FOLDER, f[:-4] + ".png")))
 
         avgap = np.mean([100*len(v["gap_inds"])/di.shape[1] for v in di.rows.values()])
         out = [f, 100*np.mean(di.green), np.mean([v["cover"] for v in di.rows.values()]), avgap, len(di.rows.keys())]
