@@ -16,10 +16,10 @@ def ratio_img(im, ax):
     return im[:, :, ax]/np.mean(im, axis=2)
 
 
-def find_gaps(rowmask, thresh=0.2):
+def find_gaps(rowmask, window_length, thresh=0.2):
     # Find gaps based on the profile along a row. Thresh is the cover fraction for each point along the Y-axis, default
     # is 0.3 ie less than 30% of pixels for this Y-coordinate are green.
-    rowprof = savgol_filter(np.mean(rowmask, axis=0), 101, 3)
+    rowprof = savgol_filter(np.mean(rowmask, axis=0), window_length, 3)
     gapf = np.vectorize(lambda x: 1 if x<thresh else 0)
     gaps = gapf(rowprof)
     return [i for i in range(len(gaps)) if gaps[i]==1]

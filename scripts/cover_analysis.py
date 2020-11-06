@@ -13,16 +13,16 @@ from tkinter import filedialog, Tk
 import pandas as pd
 from sympy import symbols, solve
 
-from code.segmentation.segmentation import otsu_mask, ratio_img, find_gaps, filling
-from code.analysis.analysis import cosine_func
+from scripts.segmentation.segmentation import otsu_mask, ratio_img, find_gaps, filling
+from scripts.analysis.analysis import cosine_func
 
 # GLOBAL VARS
 OUTPUT_FOLDER = "output"
 ROW_WIDTH = 120  # row width in pixels
-ROW_NO = 12  # amount of expected rows. Necessary if ROW_FINDING = 'periodic'
 ROW_FINDING = "periodic"  # 'periodic' or 'automatic'
 AXIS = 1  # does not work yet, will implement if necessary
 KERNEL = (3, 3)  # for masking - larger values = more blurry but less noisy mask
+THRESH = 0.2
 
 
 class droneImg:
@@ -35,16 +35,21 @@ class droneImg:
         self.green = None
         self.rows = None
         self.fig = None
+        self.window_length = int(2*ROW_WIDTH+1)
+
+    def reshape(self):
+        # reshape image to consistent size - to facilitate row separation
+        print('test')
 
     def mask(self):
         self.green = otsu_mask(self.rgb, kernel=KERNEL)
 
-    def find_rows(self, sep=50):
+    def find_rows(self, sep=ROW_WIDTH/2):
         # Take the intensity profile along the X-axis for green pixels and use scipy.signal's find_peaks to identify
         # peak positions
         av = ratio_img(self.rgb, ax=1)
         av = np.mean(av, axis=1)
-        av = savgol_filter(av, 101, 3)  # filter with window length 101 & order 3 - can be very smooth
+        av = savgol_filter(av, self.window_length, 3)  # filter with window length based on sep & order 3 - can be very smooth
 
         peaks = find_peaks(av, height=np.mean(av), distance=sep)[0]
         self.rows = {str(i): {"peak": int(peaks[i]),
@@ -61,7 +66,11 @@ class droneImg:
 
         # starting values: a = amplitude, b = period (x-units), c = phase (x-units), d = y-offset
         # a0 = np.max(ysig) - np.mean(ysig)
-        b0 = len(xsig) / ROW_NO
+
+        self.find_rows()
+        row_no = len(self.rows)
+        print("Estimated row number: {}".format(row_no))
+        b0 = len(xsig) / row_no
         c0 = 2.0
         # d0 = np.mean(ysig)
 
@@ -73,7 +82,7 @@ class droneImg:
         pha = solve((symbols('x') / p[0]) + (1 / p[1]) - 1)[0]
         while pha < 0:
             pha += per  # determine starting point
-        peaks = [pha + i*per for i in range(ROW_NO)]
+        peaks = [pha + i*per for i in range(row_no)]
         self.rows = {str(i): {"peak": int(peaks[i]),
                               "min": int(peaks[i] - ROW_WIDTH/2),
                               "max": int(peaks[i] + ROW_WIDTH/2)} for i in range(len(peaks))}
@@ -89,8 +98,19 @@ class droneImg:
         # Crop the mask image for each row and calculate cover.
         for k in self.rows.keys():
             r = self.rows[k]
-            ss = self.green[int(r["min"]):int(r["max"]), :]
-            self.rows[k]["gap_inds"] = find_gaps(ss)
+
+            if r["min"] < 0:
+                mi = 0
+            else:
+                mi = int(r["min"])
+
+            if r["max"] >= self.green.shape[0] - 1:
+                ma = self.green.shape[0] - 1
+            else:
+                ma = int(r["max"])
+
+            ss = self.green[mi:ma, :]
+            self.rows[k]["gap_inds"] = find_gaps(ss, window_length=self.window_length, thresh=THRESH)
 
     def rows_figure(self, name=""):
         fig, ax = plt.subplots(1,1, figsize=(13, 10))
