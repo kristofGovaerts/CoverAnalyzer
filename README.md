@@ -78,6 +78,20 @@ file_5.JPG | 40.198 | 51.009 | 14.626 | 12
 
 Finally, binary cover masks (in .png format) are also saved for each input .JPG. These can be useful to see if or where masking was performed incorrectly. 
 
+## Troubleshooting
+Dependencies:
+conda install:
+- numpy 1.19.2
+- matplotlib 3.3.2
+- scipy 1.5.2
+- scikit-image 0.17.2
+- pandas 1.1.3
+- sympy 1.6.2
+
+pip install:
+- opencv-python (cv2) 4.4.0
+
+
 ## Author
 
 © **Kristof Govaerts, PhD** - *[kristof.govaerts@sesvanderhave.com]*

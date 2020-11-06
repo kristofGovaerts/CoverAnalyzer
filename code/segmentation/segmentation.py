@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from scipy.signal import savgol_filter
+from skimage import filters
 
 
 def filling(im, ker, it=1):
@@ -22,3 +23,14 @@ def find_gaps(rowmask, thresh=0.2):
     gapf = np.vectorize(lambda x: 1 if x<thresh else 0)
     gaps = gapf(rowprof)
     return [i for i in range(len(gaps)) if gaps[i]==1]
+
+
+def otsu_mask(im, kernel=(3,3)):
+    # Use otsu thresholding to find pixels that are overrepresented in the green channel.
+    av = ratio_img(im, ax=1)
+    av = cv2.GaussianBlur(av, kernel, 0)
+    t = filters.threshold_otsu(av)
+    av[av < t] = 0
+    av[av >= t] = 1
+    av = filling(av, np.ones(kernel, np.uint8))
+    return av

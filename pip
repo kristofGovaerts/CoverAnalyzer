@@ -1,0 +1,7 @@
+Requirement already up-to-date: pip in c:\users\kristof\anaconda3\envs\coveranalyzer\lib\site-packages (20.2.4)
+Collecting install
+  Downloading install-1.3.4-py3-none-any.whl (3.1 kB)
+Collecting numpy
+  Using cached numpy-1.19.4-cp38-cp38-win_amd64.whl (13.0 MB)
+Installing collected packages: install, numpy
+Successfully installed install-1.3.4 numpy-1.19.4

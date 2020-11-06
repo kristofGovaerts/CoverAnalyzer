@@ -7,17 +7,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks, savgol_filter
 from scipy import optimize
-from skimage import filters
+
 import glob
 from tkinter import filedialog, Tk
 import pandas as pd
 from sympy import symbols, solve
 
+from code.segmentation.segmentation import otsu_mask, ratio_img, find_gaps, filling
+from code.analysis.analysis import cosine_func
+
 # GLOBAL VARS
 OUTPUT_FOLDER = "output"
-ROW_WIDTH = 50  # row width in pixels
-ROW_NO = 10  # amount of expected rows. Necessary if ROW_FINDING = 'periodic'
-ROW_FINDING = "automatic"  # 'periodic' or 'automatic'
+ROW_WIDTH = 120  # row width in pixels
+ROW_NO = 12  # amount of expected rows. Necessary if ROW_FINDING = 'periodic'
+ROW_FINDING = "periodic"  # 'periodic' or 'automatic'
 AXIS = 1  # does not work yet, will implement if necessary
 KERNEL = (3, 3)  # for masking - larger values = more blurry but less noisy mask
 
@@ -34,14 +37,7 @@ class droneImg:
         self.fig = None
 
     def mask(self):
-        # Use otsu thresholding to find pixels that are overrepresented in the green channel.
-        av = ratio_img(self.rgb, ax=1)
-        av = cv2.GaussianBlur(av, KERNEL, 0)
-        t = filters.threshold_otsu(av)
-        av[av < t] = 0
-        av[av >= t] = 1
-        av = filling(av, np.ones(KERNEL, np.uint8))
-        self.green = av
+        self.green = otsu_mask(self.rgb, kernel=KERNEL)
 
     def find_rows(self, sep=50):
         # Take the intensity profile along the X-axis for green pixels and use scipy.signal's find_peaks to identify
