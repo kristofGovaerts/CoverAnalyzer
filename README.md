@@ -90,6 +90,7 @@ conda install:
 
 pip install:
 - opencv-python (cv2) 4.4.0
+- imutils 0.5.3
 
 
 ## Author
