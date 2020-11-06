@@ -15,44 +15,11 @@ from sympy import symbols, solve
 
 # GLOBAL VARS
 OUTPUT_FOLDER = "output"
-ROW_WIDTH = 120  # row width in pixels
-ROW_NO = 12  # amount of expected rows. Necessary if ROW_FINDING = 'periodic'
-ROW_FINDING = "periodic"  # 'periodic' or 'automatic'
+ROW_WIDTH = 50  # row width in pixels
+ROW_NO = 10  # amount of expected rows. Necessary if ROW_FINDING = 'periodic'
+ROW_FINDING = "automatic"  # 'periodic' or 'automatic'
 AXIS = 1  # does not work yet, will implement if necessary
 KERNEL = (3, 3)  # for masking - larger values = more blurry but less noisy mask
-
-
-#FUNCTIONS
-def find_gaps(rowmask, thresh=0.3):
-    # Find gaps based on the profile along a row. Thresh is the cover fraction for each point along the Y-axis, default
-    # is 0.3 ie less than 30% of pixels for this Y-coordinate are green.
-    rowprof = savgol_filter(np.mean(rowmask, axis=0), 101, 3)
-    gapf = np.vectorize(lambda x: 1 if x<0.3 else 0)
-    gaps = gapf(rowprof)
-    return [i for i in range(len(gaps)) if gaps[i]==1]
-
-
-def ratio_img(im, ax):
-    # Calculate the representation of a certain channel relative to other channels for each pixel.
-    return im[:, :, ax]/np.mean(im, axis=2)
-
-
-# def cosine_func(x, a, b, c, d):
-#     # 4-factor sine function
-#     # a = amplitude, b = period (x-units), c = phase (x-units), d = y-offset
-#     return a * np.cos((2*np.pi*x)/b + 2*np.pi/c) + d
-
-def cosine_func(x, b, c):
-    # 2-factor sine function
-    # b = period (x-units), c = phase (x-units)
-    return np.cos((2*np.pi*x)/b + 2*np.pi/c)
-
-
-def filling(im, ker, it=1):
-    # fills small holes in image
-    i = cv2.dilate(im, ker, iterations=it)
-    i = cv2.erode(i, ker, iterations=it)
-    return i
 
 
 class droneImg:
@@ -151,44 +118,50 @@ class droneImg:
         self.fig = fig
 
 
-DIR = filedialog.askdirectory()
-os.chdir(DIR)
+def main():
+    DIR = filedialog.askdirectory()
+    os.chdir(DIR)
 
-try:
-    os.mkdir(OUTPUT_FOLDER)
-except FileExistsError:
-    print("Warning: Target directory /{}/ already found. Files may be overwritten.".format(os.path.join(DIR,
-                                                                                                        OUTPUT_FOLDER)))
+    try:
+        os.mkdir(OUTPUT_FOLDER)
+    except FileExistsError:
+        print("Warning: Target directory /{}/ already found. Files may be overwritten.".format(os.path.join(DIR,
+                                                                                                            OUTPUT_FOLDER)))
 
-filelist = glob.glob("*.JPG")
-outlist = []
+    filelist = glob.glob("*.JPG")
+    outlist = []
 
-for f in filelist:
-    print(f)
-    di = droneImg(os.path.join(DIR, f))
-    di.mask()
-    cv2.imwrite(os.path.join(DIR, os.path.join(OUTPUT_FOLDER, f[:-4] + "_mask.png")), 255*di.green)
+    for f in filelist:
+        print(f)
+        di = droneImg(os.path.join(DIR, f))
+        di.mask()
+        cv2.imwrite(os.path.join(DIR, os.path.join(OUTPUT_FOLDER, f[:-4] + "_mask.png")), 255*di.green)
 
-    if ROW_FINDING == 'automatic':
-        print("Trying to automatically determine row positions.")
-        di.find_rows()
-    elif ROW_FINDING == 'periodic':
-        print("Trying to use a sinusoidal fit to determine row positions.")
-        di.find_rows2()
-    else:
-        print("Provided row finding method not understood.")
-        break
+        if ROW_FINDING == 'automatic':
+            print("Trying to automatically determine row positions.")
+            di.find_rows()
+        elif ROW_FINDING == 'periodic':
+            print("Trying to use a sinusoidal fit to determine row positions.")
+            di.find_rows2()
+        else:
+            print("Provided row finding method not understood.")
+            break
 
-    print("Rows found: {}".format(len(di.rows)))
-    di.calc_row_cover()
-    di.calc_row_gaps()
-    di.rows_figure(name=f)
-    di.fig.savefig(os.path.join(DIR, os.path.join(OUTPUT_FOLDER, f[:-4] + ".png")))
+        print("Rows found: {}".format(len(di.rows)))
+        di.calc_row_cover()
+        di.calc_row_gaps()
+        di.rows_figure(name=f)
+        di.fig.savefig(os.path.join(DIR, os.path.join(OUTPUT_FOLDER, f[:-4] + ".png")))
 
-    avgap = np.mean([100*len(v["gap_inds"])/di.shape[1] for v in di.rows.values()])
-    out = [f, 100*np.mean(di.green), np.mean([v["cover"] for v in di.rows.values()]), avgap, len(di.rows.keys())]
-    outlist.append(out)
+        avgap = np.mean([100*len(v["gap_inds"])/di.shape[1] for v in di.rows.values()])
+        out = [f, 100*np.mean(di.green), np.mean([v["cover"] for v in di.rows.values()]), avgap, len(di.rows.keys())]
+        outlist.append(out)
 
-outfile = pd.DataFrame(outlist)
-outfile.columns = ["filename", "total_cover", "av_row_cover", "av_gaps", "rows"]
-outfile.to_csv(os.path.join(OUTPUT_FOLDER, "cover_statistics.csv"), sep='\t', index=False)
+    outfile = pd.DataFrame(outlist)
+    outfile.columns = ["filename", "total_cover", "av_row_cover", "av_gaps", "rows"]
+    outfile.to_csv(os.path.join(OUTPUT_FOLDER, "cover_statistics.csv"), sep='\t', index=False)
+
+
+if __name__ == "__main__":
+    print("Executing CoverAnalysis script.")
+    main()
