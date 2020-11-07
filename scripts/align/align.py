@@ -19,20 +19,29 @@ angles = [1 + i for i in range(180)]
 outlist = []
 for a in angles:
     rot = imutils.rotate(green, a)
+    rot[rot==0] = np.nan
 
-    outlist.append(np.mean(rot, axis=1))  # save intensity profile
+    outlist.append(np.nanmean(rot, axis=1))  # save intensity profile
 
-o = []
-out = np.zeros(int(len(outlist[0])/2))
+qs = []
+ns = []
+
+
+def estimate_peaks(samples, thresh=0.02):
+    """Get the height of the peaks in a signal vs. the mean of the signal. If this value is high (>1,
+    the signal has strong, defined peaks."""
+    pks = find_peaks(samples, prominence=thresh)
+    return np.mean(samples[pks[0]])/np.mean(samples), len(pks[0])
+
 
 for i in outlist:
-    f = fft(i)
-    absrange = 2.0 / len(i) * np.abs(f[0:len(i) // 2]) # get representation of all frequencies
-    #o.append(absrange[22]) # position 22 is most common - amount of rows
+    i[np.isnan(i)] = 0
+    filtered = i[np.argwhere(i)][:,0]
+    q, n = estimate_peaks(filtered)
+    qs.append(q)
+    ns.append(n)
 
-    der = np.gradient(np.gradient(absrange[5:])) # 2nd derivative
-    o.append((np.max(der), 5+np.argmax(der)))
-    o.append(np.argmin(np.gradient(np.gradient(absrange[5:]))) + 5)
-    out += absrange
+best_rotation = np.argmax(qs)
 
-plt.imshow(imutils.rotate(green, 47))
+plt.imshow(imutils.rotate(green, best_rotation))
+print("number of peaks found: {}".format(ns[best_rotation]))
