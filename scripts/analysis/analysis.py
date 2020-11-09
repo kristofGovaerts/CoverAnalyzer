@@ -35,8 +35,9 @@ def find_gaps(rowmask, window_length, thresh=0.2):
     :param thresh: A float between 0 and 1 indicating the cover threshold for a point being part of a gap.
     :return: Gap pixel positions along the length of the row.
     """
-
-    rowprof = savgol_filter(np.mean(rowmask, axis=0), window_length, 3)
+    rm = np.array(rowmask)
+    rm[np.isnan(rm)] = 0
+    rowprof = savgol_filter(np.nanmean(rm, axis=0), window_length, 3)
     gapf = np.vectorize(lambda x: 1 if x<thresh else 0)
     gaps = gapf(rowprof)
     return [i for i in range(len(gaps)) if gaps[i]==1]

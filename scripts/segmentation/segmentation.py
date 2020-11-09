@@ -15,11 +15,11 @@ def ratio_img(im, ax):
     return im[:, :, ax]/np.mean(im, axis=2)
 
 
-def otsu_mask(im, kernel=(3,3)):
+def otsu_mask(im, kernel=(3, 3)):
     # Use otsu thresholding to find pixels that are overrepresented in the green channel.
     av = ratio_img(im, ax=1)
     av = cv2.GaussianBlur(av, kernel, 0)
-    t = filters.threshold_otsu(av)
+    t = filters.threshold_otsu(av[~np.isnan(av)])
     av[av < t] = 0
     av[av >= t] = 1
     av = filling(av, np.ones(kernel, np.uint8))

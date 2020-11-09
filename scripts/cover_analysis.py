@@ -15,24 +15,26 @@ from sympy import symbols, solve
 
 from scripts.segmentation.segmentation import otsu_mask, ratio_img
 from scripts.analysis.analysis import cosine_func, calc_row_cover, calc_row_gaps
+from scripts.align.align import align_image
 
 # GLOBAL VARS
 OUTPUT_FOLDER = "output" # The name of the output folder.
-ROW_WIDTH = 40  # row width in pixels - change if necessary
+ROW_WIDTH = 30  # row width in pixels - change if necessary
 # TODO: Automatic row width detection
 
 ROW_FINDING = "periodic"  # 'periodic' or 'automatic'
 AXIS = 1  # does not work yet, will implement if necessary
 KERNEL = (3, 3)  # for masking - larger values = more blurry but less noisy mask
 THRESH = 0.2
+ALIGN = True
 
 
 class DroneImg:
     def __init__(self, file_loc):
         self.rgb = cv2.imread(file_loc)
-#        self.hsv = cv2.cvtColor(self.rgb, cv2.COLOR_RGB2HSV)
         self.bw = cv2.cvtColor(self.rgb, cv2.COLOR_RGB2GRAY)
-        self.shape = self.bw.shape
+        self.file_location = file_loc
+        self.shape = self.rgb.shape
         # placeholders
         self.green = None
         self.rows = None
@@ -42,14 +44,22 @@ class DroneImg:
     def mask(self):
         self.green = otsu_mask(self.rgb, kernel=KERNEL)
 
+    def align(self):
+        aligned = align_image(self.rgb)
+        out_filename = self.file_location.replace('.', '_aligned.')
+        print("Writing aligned image to location: {}".format(out_filename))
+        cv2.imwrite(out_filename, aligned)
+        self.rgb = aligned
+        self.bw = cv2.cvtColor(aligned, cv2.COLOR_RGB2GRAY)
+
     def find_rows(self, sep=ROW_WIDTH/2):
         # Take the intensity profile along the X-axis for green pixels and use scipy.signal's find_peaks to identify
         # peak positions
         av = ratio_img(self.rgb, ax=1)
-        av = np.mean(av, axis=1)
+        av = np.nanmean(av, axis=1)
         av = savgol_filter(av, self.window_length, 3)  # filter with window length based on sep & order 3
 
-        peaks = find_peaks(av, height=np.mean(av), distance=sep)[0]
+        peaks = find_peaks(av, height=np.nanmean(av), distance=sep)[0]
         self.rows = {str(i): {"peak": int(peaks[i]),
                               "min": int(peaks[i] - ROW_WIDTH/2),
                               "max": int(peaks[i] + ROW_WIDTH/2)} for i in range(len(peaks))}
@@ -58,13 +68,11 @@ class DroneImg:
         # use a cosinusoidal fit to determine row positions. Works quite well for this type of data and ensures peaks
         # are evenly spaced, making it more robust to signal fluctuations or flat peaks
         # x and y arrays
-        ysig = np.mean(ratio_img(self.rgb, ax=1), axis=1)
+        ysig = np.nanmean(ratio_img(self.rgb, ax=1), axis=1)
         ysig = 2*(ysig-min(ysig))/max(ysig-min(ysig)) - 1  # normalize to -1-1, ie basic cosine func
         xsig = np.arange(len(ysig))
 
         # starting values: a = amplitude, b = period (x-units), c = phase (x-units), d = y-offset
-        # a0 = np.max(ysig) - np.mean(ysig)
-
         self.find_rows()
         row_no = len(self.rows)
         print("Estimated row number: {}".format(row_no))
@@ -108,8 +116,8 @@ class DroneImg:
             ann = "row: {}\n%cover: {:.3}\n%gaps:  {:.3}".format(k, r["cover"],
                                                                  100*len(r["gap_inds"])/self.shape[1])
             ax.annotate(ann, xy=(self.shape[1]+100, r["max"]))
-        avcov = 100*np.mean(self.green)
-        rowcov = np.mean([r["cover"] for r in self.rows.values()])
+        avcov = 100*np.nanmean(self.green)
+        rowcov = np.nanmean([r["cover"] for r in self.rows.values()])
         ax.set_title("{}: Average cover: {:.3}%, average row cover: {:.3}%".format(name, avcov, rowcov))
 
         self.fig = fig
@@ -130,7 +138,12 @@ def main():
 
     for f in filelist:
         print(f)
-        di = DroneImg(os.path.join(d, f))
+        p = os.path.join(d, f)
+        di = DroneImg(p)
+
+        if ALIGN:
+            di.align()
+
         di.mask()
         cv2.imwrite(os.path.join(d, os.path.join(OUTPUT_FOLDER, f[:-4] + "_mask.png")), 255*di.green)
 
@@ -150,8 +163,8 @@ def main():
         di.rows_figure(name=f)
         di.fig.savefig(os.path.join(d, os.path.join(OUTPUT_FOLDER, f[:-4] + ".png")))
 
-        avgap = np.mean([100*len(v["gap_inds"])/di.shape[1] for v in di.rows.values()])
-        out = [f, 100*np.mean(di.green), np.mean([v["cover"] for v in di.rows.values()]), avgap, len(di.rows.keys())]
+        avgap = np.nanmean([100*len(v["gap_inds"])/di.shape[1] for v in di.rows.values()])
+        out = [f, 100*np.nanmean(di.green), np.nanmean([v["cover"] for v in di.rows.values()]), avgap, len(di.rows.keys())]
         outlist.append(out)
 
     outfile = pd.DataFrame(outlist)
