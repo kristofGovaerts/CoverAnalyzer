@@ -20,11 +20,11 @@ This script makes use of the fact that, for beet leaves in the field, the green 
 The input file is a .JPG RGB image, although other file formats may be supported in the future if there is demand for this. Homogenous lighting and high contrast between leaves and soil will provide optimal results. Perfect lighting conditions are not necessary but the better they are the better the results will be.
 
 ## 3.2. Processing
-### 3.2.1. Alignment [OPTIONAL]
+### 3.2.0. Alignment [OPTIONAL]
 If the input image is rotated, it is possible to align it so that the rows run from left to right, along the x-axis of the images. This is done by setting the global variable ALIGN to True.
 How it works: The image is iteratively rotated along its center, and the intensity profile of the green channel along the Y-axis is scanned. If the signal shows strong periodicity, i.e. many clearly defined peaks, this is assumed to be the optimal rotation. 
 
-<img src="/examples/plots/fig4.png" height="500"> 
+<img src="/examples/plots/fig4.png" height="700"> 
 
 We can also plot peak prominence by rotation angle. The rotation with the most prominent peaks is the optimal angle, and, in principle, the second peak on this graph is 90 degrees farther, ie the columns.
 
