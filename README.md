@@ -17,7 +17,7 @@ This script makes use of the fact that, for beet leaves in the field, the green 
 ## 3.1. Input file
 <img src="/examples/test_img.JPG" height="300">
 
-The input file is a .JPG RGB image, although other file formats may be supported in the future if there is demand for this. Homogenous lighting and high contrast between leaves and soil will provide optimal results. Perfect lighting conditions are not necessary but the better they are the better the results will be.
+The input file is a .JPG RGB image, although other file formats may be supported in the future if there is demand for this. Homogenous lighting and high contrast between leaves and soil will provide optimal results. Perfect lighting conditions are not necessary but the better they are the better the results will be. In this example, we are looking at a drone image of sugar beet before closure of the rows, ie beet leaves do not yet overlap between rows. This allows for easier separation. 
 
 ## 3.2. Processing
 ### 3.2.0. Alignment [OPTIONAL]
