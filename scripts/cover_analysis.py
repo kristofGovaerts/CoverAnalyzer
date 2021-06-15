@@ -39,7 +39,7 @@ class DroneImg:
         self.green = None
         self.rows = None
         self.fig = None
-        self.window_length = int(2*ROW_WIDTH+1)
+        self.window_length = int(ROW_WIDTH+int(not (ROW_WIDTH % 2)))  # window length has to be odd
 
     def mask(self):
         self.green = otsu_mask(self.rgb, kernel=KERNEL)
