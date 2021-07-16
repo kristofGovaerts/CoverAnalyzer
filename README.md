@@ -31,6 +31,13 @@ We can also plot peak prominence by rotation angle. The rotation with the most p
 <img src="/examples/plots/fig5.png" height="300"> 
 
 ### 3.2.1. Cover mask
+At the top of the script, the method for determining green pixels can be defined. Both methods depend on green channel intensity relative to the other channels but the calculation is different.
+Method 1: VARI method
+This method calculates the Visible Atmospherically Resistant Index. Values >0 belong to vegetation. Morphological filters are used to denoise. This method is quite robust and is recommended over the OTSU method. VARI is defined as:
+
+_VARI = (Green - Red) / (Green + Red – Blue)_
+
+Method 2: OTSU method
 The intensity of the green channel relative to the other two channels is calculated using the following formula: 
 
 <img src="/examples/plots/eq.gif">
