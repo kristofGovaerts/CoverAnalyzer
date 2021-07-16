@@ -13,20 +13,21 @@ from tkinter import filedialog
 import pandas as pd
 from sympy import symbols, solve
 
-from scripts.segmentation.segmentation import otsu_mask, ratio_img
+from scripts.segmentation.segmentation import otsu_mask, ratio_img, vari_mask
 from scripts.analysis.analysis import cosine_func, calc_row_cover, calc_row_gaps
 from scripts.align.align import align_image
 
 # GLOBAL VARS
 OUTPUT_FOLDER = "output" # The name of the output folder.
-ROW_WIDTH = 30  # row width in pixels - change if necessary
+ROW_WIDTH = 200  # row width in pixels - change if necessary
 # TODO: Automatic row width detection
 
 ROW_FINDING = "periodic"  # 'periodic' or 'automatic'
 AXIS = 1  # does not work yet, will implement if necessary
 KERNEL = (3, 3)  # for masking - larger values = more blurry but less noisy mask
-THRESH = 0.2
-ALIGN = True
+MASK_METHOD = 'VARI'  # VARI or OTSU. Recommended: VARI
+THRESH = 0.2  # only relevant if method = OTSU
+ALIGN = False
 
 
 class DroneImg:
@@ -42,7 +43,11 @@ class DroneImg:
         self.window_length = int(ROW_WIDTH+int(not (ROW_WIDTH % 2)))  # window length has to be odd
 
     def mask(self):
-        self.green = otsu_mask(self.rgb, kernel=KERNEL)
+        if MASK_METHOD == 'VARI':
+            self.green = vari_mask(self.rgb, kernel=KERNEL)
+
+        elif MASK_METHOD == 'OTSU':
+            self.green = otsu_mask(self.rgb, kernel=KERNEL)
 
     def align(self):
         aligned = align_image(self.rgb)
@@ -57,7 +62,11 @@ class DroneImg:
         # peak positions
         av = ratio_img(self.rgb, ax=1)
         av = np.nanmean(av, axis=1)
-        av = savgol_filter(av, self.window_length, 3)  # filter with window length based on sep & order 3
+        try:
+            av = savgol_filter(av, self.window_length, 3)  # filter with window length based on sep & order 3
+        except np.linalg.LinAlgError:
+            print("Savgol filter failed to converge. This happens occasionally in loops. Retrying once.")
+            av = savgol_filter(av, self.window_length, 3)  # filter with window length based on sep & order 3
 
         peaks = find_peaks(av, height=np.nanmean(av), distance=sep)[0]
         self.rows = {str(i): {"peak": int(peaks[i]),
